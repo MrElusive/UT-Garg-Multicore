@@ -1,0 +1,51 @@
+Testing fast
+N = 1
+38
+N = 2
+157
+264
+N = 4
+318
+N = 5
+360
+N = 6
+382
+Testing bakery
+N = 1
+45
+N = 2
+152
+N = 3
+194
+N = 4
+214
+N = 5
+229
+N = 6
+248
+Testing synchronized
+N = 1
+28
+N = 2
+42
+N = 3
+47
+N = 4
+48
+N = 5
+48
+N = 6
+48
+Testing reentrant
+N = 1
+26
+N = 2
+69
+N = 3
+39
+N = 4
+40
+N = 5
+39
+N = 6
+39
