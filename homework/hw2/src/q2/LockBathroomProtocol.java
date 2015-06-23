@@ -6,44 +6,60 @@ import java.util.Random;
 public class LockBathroomProtocol implements BathroomProtocol {
 	ReentrantLock lock;
 
-	Condition noMales;
-	Condition noFemales;
-
-   Condition noMalesWaitingInLine;
-   Condition noFemalesWaitingInLine;
+	Condition bathroomEmpty;
 	
-	volatile int numMales;
-	volatile int numFemales;
+	volatile int numMalesInLine;
+	volatile int numFemalesInLine;
+
+	volatile int numMalesInBathroom;
+	volatile int numFemalesInBathroom;
 	
 	public LockBathroomProtocol() {
       final boolean isFair = true;
 		lock = new ReentrantLock(isFair);
-		noMales = lock.newCondition();
-		noFemales = lock.newCondition();
-      noMalesWaitingInLine = lock.newCondition();
-      noFemalesWaitingInLine = lock.newCondition();
-		numMales = 0;
-		numFemales = 0;
+      bathroomEmpty = lock.newCondition();
+
+		numMalesInLine = 0;
+		numFemalesInLine = 0;
+
+		numMalesInBathroom = 0;
+		numFemalesInBathroom = 0;
 	}
 
 	public void enterMale() {
 		lock.lock();
 
 		try {
-			while (numFemales > 0) {
-            System.out.println("[" + Thread.currentThread().getId() + "] Male waiting on females");
-				noFemales.await();
+         numMalesInLine++;
+
+         while (numFemalesInLine > 0 && (numMalesInBathroom > 0 || numFemalesInBathroom > 0)) {
+            System.out.println("[" + Thread.currentThread().getId() + "] Male - waiting in line 1.");
+            System.out.println("numMalesInLine: " + numMalesInLine);
+            System.out.println("numFemalesInLine: " + numFemalesInLine);
+            System.out.println("numMalesInBathroom: " + numMalesInBathroom);
+            System.out.println("numFemalesInBathroom: " + numFemalesInBathroom);
+				bathroomEmpty.await();
+            System.out.println("[" + Thread.currentThread().getId() + "] Male - attempting to exit line 1.");
 			}
+
+         while (numFemalesInBathroom > 0) {
+            System.out.println("numFemalesInBathroom: " + numFemalesInBathroom);
+            System.out.println("[" + Thread.currentThread().getId() + "] Male - waiting in line 2.");
+				bathroomEmpty.await();
+            System.out.println("[" + Thread.currentThread().getId() + "] Male - attempting to exit line 2.");
+         }
 			
-			numMales++;
+         numMalesInLine--;
+			numMalesInBathroom++;
+
+         if (numMalesInLine == 0) {
+            bathroomEmpty.signalAll();
+         }
 
 			// @TODO: Remove for submission
-			if (numMales == 1) {
+			if (numMalesInBathroom == 1) {
 				System.out.println("Male territory - BEGIN");
 			}
-         System.out.println("[" + Thread.currentThread().getId() + "] Male signaling females that perhaps no males are in line");
-         noMalesWaitingInLine.signalAll();
-			
 			
 		} catch (InterruptedException e) {
 			e.printStackTrace();
@@ -56,20 +72,14 @@ public class LockBathroomProtocol implements BathroomProtocol {
 		lock.lock();
 		
 		try {			
-			numMales--;
-			if (numMales == 0) {
-            noMales.signalAll();
+			numMalesInBathroom--;
+			if (numMalesInBathroom == 0) {
+            bathroomEmpty.signalAll();
 				// @TODO: Remove for submission
 				System.out.println("Male territory - END");
 			}
-         while (lock.hasWaiters(noMales)) {
-            System.out.println("[" + Thread.currentThread().getId() + "] Male waiting for females in line");
-            noFemalesWaitingInLine.await();
-         }
 		
-		} catch (InterruptedException e) {
-        
-      } finally {
+		} finally {
 			lock.unlock();
 		}  
 	}
@@ -79,19 +89,37 @@ public class LockBathroomProtocol implements BathroomProtocol {
 
 		try {
 
-			while (lock.hasWaiters(noFemales) || numMales > 0) {
-            System.out.println("[" + Thread.currentThread().getId() + "] Female waiting on males");
-				noMales.await();
+         numFemalesInLine++;
+
+         while (numMalesInLine > 0 && (numMalesInBathroom > 0 || numFemalesInBathroom > 0)) {
+            System.out.println("[" + Thread.currentThread().getId() + "] Female - waiting in line 1.");
+            System.out.println("numMalesInLine: " + numMalesInLine);
+            System.out.println("numFemalesInLine: " + numFemalesInLine);
+            System.out.println("numMalesInBathroom: " + numMalesInBathroom);
+            System.out.println("numFemalesInBathroom: " + numFemalesInBathroom);
+
+				bathroomEmpty.await();
+            System.out.println("[" + Thread.currentThread().getId() + "] Female - attempting to exit line 1.");
 			}
+
+         while (numMalesInBathroom > 0) {
+            System.out.println("[" + Thread.currentThread().getId() + "] Female - waiting in line 2.");
+            System.out.println("numMalesInBathroom: " + numMalesInBathroom);
+				bathroomEmpty.await();
+            System.out.println("[" + Thread.currentThread().getId() + "] Female - attempting to exit line 2.");
+         }
 			
-			numFemales++;
+         numFemalesInLine--;
+			numFemalesInBathroom++;
+
+         if (numFemalesInLine == 0) {
+            bathroomEmpty.signalAll();
+         }
 			
 			// @TODO: Remove for submission
-			if (numFemales == 1) {
+			if (numFemalesInBathroom == 1) {
 				System.out.println("Female territory - BEGIN");
 			}
-         System.out.println("[" + Thread.currentThread().getId() + "] Female signaling males that perhaps no females are in line");
-         noFemalesWaitingInLine.signalAll();
 			
 		} catch (InterruptedException e) {
 			e.printStackTrace();
@@ -104,20 +132,14 @@ public class LockBathroomProtocol implements BathroomProtocol {
 		lock.lock();
 		
 		try {			
-			numFemales--;
-			if (numFemales == 0) {
-            noFemales.signalAll();
+			numFemalesInBathroom--;
+			if (numFemalesInBathroom == 0) {
+            bathroomEmpty.signalAll();
 				// @TODO: Remove for submission
 				System.out.println("Female territory - END");
 			}
 
-         while (lock.hasWaiters(noFemales)) {
-            System.out.println("[" + Thread.currentThread().getId() + "] Female waiting for males in line");
-            noMalesWaitingInLine.await();
-         }
-		} catch (InterruptedException e) {
-        
-      } finally {
+		} finally {
 			lock.unlock();
 		}  
 	}
@@ -133,15 +155,15 @@ public class LockBathroomProtocol implements BathroomProtocol {
 			public void run() {
             Random random = new Random();
 				while (true) {
-               try {
-                  Thread.sleep(random.nextInt(10) + 1);
+               //try {
+                  //Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.enterMale();
                   System.out.println("[" + Thread.currentThread().getId() + "] I'm male, and I'm doing my business.");
-                  Thread.sleep(random.nextInt(10) + 1);
+                  //Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.leaveMale();
-               } catch(InterruptedException e) {
+               //} catch(InterruptedException e) {
 
-               }
+               //}
 				}
 			}
 		};
@@ -150,15 +172,15 @@ public class LockBathroomProtocol implements BathroomProtocol {
 			public void run() {
             Random random = new Random();
 				while (true) {
-               try {
-                  Thread.sleep(random.nextInt(10) + 1);
+               //try {
+                  //Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.enterFemale();
                   System.out.println("[" + Thread.currentThread().getId() + "] I'm female, and I'm doing my business.");
-                  Thread.sleep(random.nextInt(10) + 1);
+                  //Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.leaveFemale();
-               } catch(InterruptedException e) {
+               //} catch(InterruptedException e) {
 
-               }
+               //}
 				}
 			}
 		};
