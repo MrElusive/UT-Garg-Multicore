@@ -136,6 +136,7 @@ public class LockBathroomProtocol implements BathroomProtocol {
    public void debugConditions(Gender gender, Gender oppositeGender, boolean isWaiting) {
       long currentThreadId = Thread.currentThread().getId();
       System.out.println(String.format("[%d] CONDITIONS - BEGIN", currentThreadId));
+      System.out.println(String.format("-I am a %s", gender));
       System.out.println(String.format("-Is %s in bathroom? %s", gender, isGenderInBathroom(gender)));
       System.out.println(String.format("-Is %s in bathroom? %s", oppositeGender, isGenderInBathroom(oppositeGender)));
       System.out.println(String.format("-Is %s contending for bathroom? %s", gender, isGenderContendingForBathroom(gender)));
@@ -143,7 +144,20 @@ public class LockBathroomProtocol implements BathroomProtocol {
       System.out.println(String.format("-Is %s genders turn? %s", gender, isGendersTurn(gender)));
       System.out.println(String.format("-Is %s genders turn? %s", oppositeGender, isGendersTurn(oppositeGender)));
       System.out.println(String.format("-Is waiting? %s", isWaiting));
+      System.out.println(String.format("-Am I going to wait? %s", shouldGenderEnter(gender, oppositeGender, isWaiting)));
       System.out.println(String.format("[%d] CONDITIONS - END", currentThreadId));
+   }
+
+   public boolean shouldGenderEnter(Gender gender, Gender oppositeGender, boolean isWaiting) {
+      if (!isGenderInBathroom(oppositeGender) && !isGenderContendingForBathroom(oppositeGender)) {
+         return true;
+      }
+
+      if (!isGenderInBathroom(oppositeGender) && isGendersTurn(gender)) {
+         return true;
+      }
+
+      return false;
    }
 
    public void enterGender(Gender gender, Gender oppositeGender) {
@@ -155,11 +169,8 @@ public class LockBathroomProtocol implements BathroomProtocol {
 
          while (true) {
             debugConditions(gender, oppositeGender, isWaiting);
-            if (!isGenderInBathroom(oppositeGender) && !isGenderContendingForBathroom(oppositeGender)) {
-               break;
-            }
 
-            if (!isGenderInBathroom(oppositeGender) && isGendersTurn(gender) && isWaiting) {
+            if (shouldGenderEnter(gender, oppositeGender, isWaiting)) {
                break;
             }
 
