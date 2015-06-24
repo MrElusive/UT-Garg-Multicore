@@ -2,10 +2,10 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.lang.Thread;
 import java.util.Random;
+import java.lang.RuntimeException;
 
 public class LockBathroomProtocol implements BathroomProtocol {
 	ReentrantLock lock;
-
 	Condition bathroomEmpty;
 	
 	volatile int numMalesInLine;
@@ -13,6 +13,13 @@ public class LockBathroomProtocol implements BathroomProtocol {
 
 	volatile int numMalesInBathroom;
 	volatile int numFemalesInBathroom;
+
+   private enum Gender {
+      MALE,
+      FEMALE
+   };
+
+   volatile Gender turn;
 	
 	public LockBathroomProtocol() {
       final boolean isFair = true;
@@ -24,124 +31,181 @@ public class LockBathroomProtocol implements BathroomProtocol {
 
 		numMalesInBathroom = 0;
 		numFemalesInBathroom = 0;
+
+      turn = Gender.MALE;
 	}
 
-	public void enterMale() {
+   private boolean isGenderContendingForBathroom(Gender gender) {
+      return (gender == Gender.MALE) ? numMalesInLine > 0 : numFemalesInLine > 0;
+   }
+
+   private boolean isGenderInBathroom(Gender gender) {
+      return (gender == Gender.MALE) ? numMalesInBathroom > 0 : numFemalesInBathroom > 0;
+   }
+
+   private boolean isGendersTurn(Gender gender) {
+      return gender == Gender.MALE;
+   }
+   
+   private void incrementGenderInBathroom(Gender gender) {
+      switch (gender) {
+         case MALE:
+            numMalesInBathroom++;
+            break;
+         case FEMALE:
+            numFemalesInBathroom++;
+            break;
+         default:
+            throw new RuntimeException("Unknown gender!");
+      }
+   }
+
+   private void decrementGenderInBathroom(Gender gender) {
+      switch (gender) {
+         case MALE:
+            numMalesInBathroom--;
+            break;
+         case FEMALE:
+            numFemalesInBathroom--;
+            break;
+         default:
+            throw new RuntimeException("Unknown gender!");
+      }
+   }
+
+   private void incrementGenderInLine(Gender gender) {
+      switch (gender) {
+         case MALE:
+            numMalesInLine++;
+            break;
+         case FEMALE:
+            numFemalesInLine++;
+            break;
+         default:
+            throw new RuntimeException("Unknown gender!");
+      }
+   }
+
+   private void decrementGenderInLine(Gender gender) {
+      switch (gender) {
+         case MALE:
+            numMalesInLine--;
+            break;
+         case FEMALE:
+            numFemalesInLine--;
+            break;
+         default:
+            throw new RuntimeException("Unknown gender!");
+      }
+   }
+
+   private void debugGenderBegin(Gender gender) {
+      switch (gender) {
+         case MALE:
+            if (numMalesInBathroom == 1) {
+               System.out.println("MALE REIGN - BEGINS"); 
+            }
+            break;
+         case FEMALE:
+            if (numFemalesInBathroom == 1) {
+               System.out.println("FEMALE REIGN - BEGINS"); 
+            }
+            break;
+         default:
+            throw new RuntimeException("Unknown gender!");
+      }
+   }
+
+   private void debugGenderEnd(Gender gender) {
+      switch (gender) {
+         case MALE:
+            if (numMalesInBathroom == 0) {
+               System.out.println("MALE REIGN - END"); 
+            }
+            break;
+         case FEMALE:
+            if (numFemalesInBathroom == 0) {
+               System.out.println("FEMALE REIGN - END"); 
+            }
+            break;
+         default:
+            throw new RuntimeException("Unknown gender!");
+      }
+   }
+
+   public void enterGender(Gender gender, Gender oppositeGender) {
 		lock.lock();
 
 		try {
-         numMalesInLine++;
+         boolean isWaiting = false;
+         incrementGenderInLine(gender);
 
-         while (numFemalesInLine > 0 && (numMalesInBathroom > 0 || numFemalesInBathroom > 0)) {
-            System.out.println("[" + Thread.currentThread().getId() + "] Male - waiting in line 1.");
-            System.out.println("numMalesInLine: " + numMalesInLine);
-            System.out.println("numFemalesInLine: " + numFemalesInLine);
-            System.out.println("numMalesInBathroom: " + numMalesInBathroom);
-            System.out.println("numFemalesInBathroom: " + numFemalesInBathroom);
-				bathroomEmpty.await();
-            System.out.println("[" + Thread.currentThread().getId() + "] Male - attempting to exit line 1.");
+         while (true) {
+            if (!isGenderInBathroom(oppositeGender) && !isGenderContendingForBathroom(oppositeGender)) {
+               break;
+            }
+
+            if (!isGenderInBathroom(oppositeGender) && isGendersTurn(gender) && isWaiting) {
+               break;
+            }
+
+            isWaiting = true;
+
+            bathroomEmpty.await();
 			}
-
-         while (numFemalesInBathroom > 0) {
-            System.out.println("numFemalesInBathroom: " + numFemalesInBathroom);
-            System.out.println("[" + Thread.currentThread().getId() + "] Male - waiting in line 2.");
-				bathroomEmpty.await();
-            System.out.println("[" + Thread.currentThread().getId() + "] Male - attempting to exit line 2.");
-         }
 			
-         numMalesInLine--;
-			numMalesInBathroom++;
+         decrementGenderInLine(gender);
+			incrementGenderInBathroom(gender);
 
-         if (numMalesInLine == 0) {
-            bathroomEmpty.signalAll();
+         if (!isGenderContendingForBathroom(gender)) {
+            turn = oppositeGender;
          }
 
-			// @TODO: Remove for submission
-			if (numMalesInBathroom == 1) {
-				System.out.println("Male territory - BEGIN");
-			}
+         debugGenderBegin(gender);
 			
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		} finally {
 			lock.unlock();
 		}
+   }
+
+   public void leaveGender(Gender gender) {
+		lock.lock();
+		
+		try {			
+			decrementGenderInBathroom(gender);
+
+			if (!isGenderInBathroom(gender)) {
+            bathroomEmpty.signalAll();
+            debugGenderEnd(gender);
+			}
+		
+		} finally {
+			lock.unlock();
+		}  
+   }
+
+	public void enterMale() {
+      final Gender gender = Gender.MALE;
+      final Gender oppositeGender = Gender.FEMALE;
+      enterGender(gender, oppositeGender);
 	}
 
 	public void leaveMale() {
-		lock.lock();
-		
-		try {			
-			numMalesInBathroom--;
-			if (numMalesInBathroom == 0) {
-            bathroomEmpty.signalAll();
-				// @TODO: Remove for submission
-				System.out.println("Male territory - END");
-			}
-		
-		} finally {
-			lock.unlock();
-		}  
+      final Gender gender = Gender.MALE;
+      leaveGender(gender); 
 	}
 
 	public void enterFemale() {
-		lock.lock();
-
-		try {
-
-         numFemalesInLine++;
-
-         while (numMalesInLine > 0 && (numMalesInBathroom > 0 || numFemalesInBathroom > 0)) {
-            System.out.println("[" + Thread.currentThread().getId() + "] Female - waiting in line 1.");
-            System.out.println("numMalesInLine: " + numMalesInLine);
-            System.out.println("numFemalesInLine: " + numFemalesInLine);
-            System.out.println("numMalesInBathroom: " + numMalesInBathroom);
-            System.out.println("numFemalesInBathroom: " + numFemalesInBathroom);
-
-				bathroomEmpty.await();
-            System.out.println("[" + Thread.currentThread().getId() + "] Female - attempting to exit line 1.");
-			}
-
-         while (numMalesInBathroom > 0) {
-            System.out.println("[" + Thread.currentThread().getId() + "] Female - waiting in line 2.");
-            System.out.println("numMalesInBathroom: " + numMalesInBathroom);
-				bathroomEmpty.await();
-            System.out.println("[" + Thread.currentThread().getId() + "] Female - attempting to exit line 2.");
-         }
-			
-         numFemalesInLine--;
-			numFemalesInBathroom++;
-
-         if (numFemalesInLine == 0) {
-            bathroomEmpty.signalAll();
-         }
-			
-			// @TODO: Remove for submission
-			if (numFemalesInBathroom == 1) {
-				System.out.println("Female territory - BEGIN");
-			}
-			
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		} finally {
-			lock.unlock();
-		}
+      final Gender gender = Gender.FEMALE;
+      final Gender oppositeGender = Gender.MALE;
+      enterGender(gender, oppositeGender);
 	}
 
 	public void leaveFemale() {
-		lock.lock();
-		
-		try {			
-			numFemalesInBathroom--;
-			if (numFemalesInBathroom == 0) {
-            bathroomEmpty.signalAll();
-				// @TODO: Remove for submission
-				System.out.println("Female territory - END");
-			}
-
-		} finally {
-			lock.unlock();
-		}  
+      final Gender gender = Gender.FEMALE;
+      leaveGender(gender); 
 	}
 	
 	public static void main(String[] args) {
