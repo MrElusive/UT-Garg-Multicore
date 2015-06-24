@@ -5,21 +5,24 @@ import java.util.Random;
 import java.lang.RuntimeException;
 
 public class LockBathroomProtocol implements BathroomProtocol {
-	ReentrantLock lock;
-	Condition bathroomEmpty;
-	
-	volatile int numMalesInLine;
-	volatile int numFemalesInLine;
+   private static boolean DEBUG = false;
+   private static boolean DEBUG_VERBOSE = false;
 
-	volatile int numMalesInBathroom;
-	volatile int numFemalesInBathroom;
+	private ReentrantLock lock;
+	private Condition bathroomEmpty;
+	
+	private volatile int numMalesInLine;
+	private volatile int numFemalesInLine;
+
+	private volatile int numMalesInBathroom;
+	private volatile int numFemalesInBathroom;
 
    private enum Gender {
       MALE,
       FEMALE
    };
 
-   volatile Gender turn;
+   private volatile Gender turn;
 	
 	public LockBathroomProtocol() {
       final boolean isFair = true;
@@ -44,7 +47,14 @@ public class LockBathroomProtocol implements BathroomProtocol {
    }
 
    private boolean isGendersTurn(Gender gender) {
-      return gender == Gender.MALE;
+      switch (gender) {
+         case MALE:
+            return turn == Gender.MALE;
+         case FEMALE:
+            return turn == Gender.FEMALE;
+         default:
+            throw new RuntimeException("Unknown gender!");
+      }
    }
    
    private void incrementGenderInBathroom(Gender gender) {
@@ -99,7 +109,21 @@ public class LockBathroomProtocol implements BathroomProtocol {
       }
    }
 
+   private boolean shouldGenderEnter(Gender gender, Gender oppositeGender, boolean isWaiting) {
+      if (!isGenderInBathroom(oppositeGender) && !isGenderContendingForBathroom(oppositeGender)) {
+         return true;
+      }
+
+      if (!isGenderInBathroom(oppositeGender) && isGendersTurn(gender) && isWaiting) {
+         return true;
+      }
+
+      return false;
+   }
+
    private void debugGenderBegin(Gender gender) {
+      if (!DEBUG) return;
+
       switch (gender) {
          case MALE:
             if (numMalesInBathroom == 1) {
@@ -117,6 +141,8 @@ public class LockBathroomProtocol implements BathroomProtocol {
    }
 
    private void debugGenderEnd(Gender gender) {
+      if (!DEBUG) return;
+
       switch (gender) {
          case MALE:
             if (numMalesInBathroom == 0) {
@@ -133,7 +159,16 @@ public class LockBathroomProtocol implements BathroomProtocol {
       }
    }
 
-   public void debugConditions(Gender gender, Gender oppositeGender, boolean isWaiting) {
+   private void debugGenderLeave(Gender gender) {
+      if (!DEBUG) return;
+
+      long currentThreadId = Thread.currentThread().getId();
+      System.out.println(String.format("[%d] %s left the bathroom", currentThreadId, gender));
+   }
+
+   private void debugConditions(Gender gender, Gender oppositeGender, boolean isWaiting) {
+      if (!DEBUG_VERBOSE) return;
+
       long currentThreadId = Thread.currentThread().getId();
       System.out.println(String.format("[%d] CONDITIONS - BEGIN", currentThreadId));
       System.out.println(String.format("-I am a %s", gender));
@@ -144,21 +179,10 @@ public class LockBathroomProtocol implements BathroomProtocol {
       System.out.println(String.format("-Is %s genders turn? %s", gender, isGendersTurn(gender)));
       System.out.println(String.format("-Is %s genders turn? %s", oppositeGender, isGendersTurn(oppositeGender)));
       System.out.println(String.format("-Is waiting? %s", isWaiting));
-      System.out.println(String.format("-Am I going to wait? %s", shouldGenderEnter(gender, oppositeGender, isWaiting)));
+      System.out.println(String.format("-Am I going to wait? %s", !shouldGenderEnter(gender, oppositeGender, isWaiting)));
       System.out.println(String.format("[%d] CONDITIONS - END", currentThreadId));
    }
 
-   public boolean shouldGenderEnter(Gender gender, Gender oppositeGender, boolean isWaiting) {
-      if (!isGenderInBathroom(oppositeGender) && !isGenderContendingForBathroom(oppositeGender)) {
-         return true;
-      }
-
-      if (!isGenderInBathroom(oppositeGender) && isGendersTurn(gender)) {
-         return true;
-      }
-
-      return false;
-   }
 
    public void enterGender(Gender gender, Gender oppositeGender) {
 		lock.lock();
@@ -182,10 +206,6 @@ public class LockBathroomProtocol implements BathroomProtocol {
          decrementGenderInLine(gender);
 			incrementGenderInBathroom(gender);
 
-         if (!isGenderContendingForBathroom(gender)) {
-            turn = oppositeGender;
-         }
-
          debugGenderBegin(gender);
 			
 		} catch (InterruptedException e) {
@@ -195,14 +215,17 @@ public class LockBathroomProtocol implements BathroomProtocol {
 		}
    }
 
-   public void leaveGender(Gender gender) {
+   public void leaveGender(Gender gender, Gender oppositeGender) {
 		lock.lock();
+
+      debugGenderLeave(gender);
 		
 		try {			
 			decrementGenderInBathroom(gender);
 
 			if (!isGenderInBathroom(gender)) {
             bathroomEmpty.signalAll();
+            turn = oppositeGender;
             debugGenderEnd(gender);
 			}
 		
@@ -219,7 +242,8 @@ public class LockBathroomProtocol implements BathroomProtocol {
 
 	public void leaveMale() {
       final Gender gender = Gender.MALE;
-      leaveGender(gender); 
+      final Gender oppositeGender = Gender.FEMALE;
+      leaveGender(gender, oppositeGender); 
 	}
 
 	public void enterFemale() {
@@ -230,10 +254,20 @@ public class LockBathroomProtocol implements BathroomProtocol {
 
 	public void leaveFemale() {
       final Gender gender = Gender.FEMALE;
-      leaveGender(gender); 
+      final Gender oppositeGender = Gender.MALE;
+      leaveGender(gender, oppositeGender); 
 	}
 	
 	public static void main(String[] args) {
+      if (args.length > 0) {
+         if (args[0].equals("DEBUG")) {
+            LockBathroomProtocol.DEBUG = true;
+         } else if (args[0].equals("DEBUG_VERBOSE")) {
+            LockBathroomProtocol.DEBUG = true;
+            LockBathroomProtocol.DEBUG_VERBOSE = true;
+         }
+      }
+
 		int numMaleThreads = 10;
 		int numFemaleThreads = 10;
 		final LockBathroomProtocol lockBathroomProtocol = new LockBathroomProtocol();
@@ -244,15 +278,15 @@ public class LockBathroomProtocol implements BathroomProtocol {
 			public void run() {
             Random random = new Random();
 				while (true) {
-               //try {
-                  //Thread.sleep(random.nextInt(10) + 1);
+               try {
+                  Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.enterMale();
                   System.out.println("[" + Thread.currentThread().getId() + "] I'm male, and I'm doing my business.");
-                  //Thread.sleep(random.nextInt(10) + 1);
+                  Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.leaveMale();
-               //} catch(InterruptedException e) {
+               } catch(InterruptedException e) {
 
-               //}
+               }
 				}
 			}
 		};
@@ -261,15 +295,15 @@ public class LockBathroomProtocol implements BathroomProtocol {
 			public void run() {
             Random random = new Random();
 				while (true) {
-               //try {
-                  //Thread.sleep(random.nextInt(10) + 1);
+               try {
+                  Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.enterFemale();
                   System.out.println("[" + Thread.currentThread().getId() + "] I'm female, and I'm doing my business.");
-                  //Thread.sleep(random.nextInt(10) + 1);
+                  Thread.sleep(random.nextInt(10) + 1);
                   lockBathroomProtocol.leaveFemale();
-               //} catch(InterruptedException e) {
+               } catch(InterruptedException e) {
 
-               //}
+               }
 				}
 			}
 		};
@@ -289,5 +323,5 @@ public class LockBathroomProtocol implements BathroomProtocol {
 		for (int i = 0; i < numMaleThreads; i++) {
 			maleThreads[i].start();
 		}
-	  }
+	}
 }
