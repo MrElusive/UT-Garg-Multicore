@@ -26,13 +26,16 @@ bool MatrixMult(int ROWA, int COLA, double* A, int ROWB, int COLB, double* B, do
 		C = new double[COLA * ROWB];
 		
 		omp_set_num_threads(T);
-		#pragma omp parallel for
+		#pragma omp parallel
+		{
+			cout << "Num threads: " << omp_get_num_threads() <<endl;
+		}
+		#pragma omp parallel for 
 		for (int elementIndex = 0; elementIndex < COLA * ROWB; elementIndex++) {
 			int row = elementIndex / COLA;
 			int column = elementIndex % COLA;
-			
-			for (int inner = 0; inner < ROWB; inner++) {
-				
+			 
+			for (int inner = 0; inner < ROWB; inner++) {	
 				C[elementIndex] += A[INDEX_1D_AS_2D(row, inner, COLA)] * B[INDEX_1D_AS_2D(inner, column, COLB)];					
 			}
 		}
@@ -59,6 +62,7 @@ bool MatrixMult(int ROWA, int COLA, double* A, int ROWB, int COLB, double* B, do
 	}
 }
 
+/*
 void printMatrix(int numRows, int numColumns, double *matrix) {
 	cout << numRows << " " << numColumns << endl;
 	for (int i = 0; i < numRows; i++) {
@@ -68,6 +72,7 @@ void printMatrix(int numRows, int numColumns, double *matrix) {
 		cout << endl;
 	}
 }
+*/
 
 vector<string> parseTokens(string line) {
 	vector<string> tokens;
@@ -115,7 +120,7 @@ bool parseMatrixFromFile(ifstream &matrixFile, int &numRows, int &numColumns, do
 	}
 
 
-	printMatrix(numRows, numColumns, matrix);
+//	printMatrix(numRows, numColumns, matrix);
 
 	return true;
 }
@@ -160,9 +165,16 @@ int main(int argc, const char *argv[]) {
 	}
 
 	T = atoi(argv[3]);
-
+	
+	bool PrintOutput = true;
+	if (argc >= 5 && (string(argv[4]) == "dont_print")) {
+		PrintOutput = false;
+	}
+	
 	if	(MatrixMult(ROWA, COLA, A, ROWB, COLB, B, C, T)) {
-		printMatrix(ROWA, COLB, C);
+		if (PrintOutput) {
+//		printMatrix(ROWA, COLB, C);
+		}
 	} else {
 		cout << "the colA != rowB MatrixMult return false" << endl;
 		return 1;
