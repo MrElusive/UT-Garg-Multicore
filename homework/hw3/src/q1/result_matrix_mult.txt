@@ -1,8 +1,0 @@
-Num Threads: 1
-Num Threads: 2
-Num Threads: 3
-Num Threads: 4
-Num Threads: 5
-Num Threads: 6
-Num Threads: 7
-Num Threads: 8

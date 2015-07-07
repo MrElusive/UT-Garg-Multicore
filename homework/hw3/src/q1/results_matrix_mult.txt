@@ -1,0 +1,39 @@
+Num Threads: 1
+real    1m44.368s
+user    1m44.140s
+sys     0m0.214s
+
+Num Threads: 2
+real    0m58.561s
+user    1m43.487s
+sys     0m0.338s
+
+Num Threads: 3
+real    0m43.547s
+user    1m43.671s
+sys     0m0.353s
+
+Num Threads: 4
+real    0m38.728s
+user    1m49.586s
+sys     0m0.262s
+
+Num Threads: 5
+real    0m36.903s
+user    1m54.702s
+sys     0m0.416s
+
+Num Threads: 6
+real    0m34.045s
+user    2m5.451s
+sys     0m0.338s
+
+Num Threads: 7
+real    0m32.304s
+user    2m16.731s
+sys     0m0.245s
+
+Num Threads: 8
+real    0m32.287s
+user    2m37.415s
+sys     0m0.307s
