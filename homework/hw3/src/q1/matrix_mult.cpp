@@ -26,43 +26,23 @@ bool MatrixMult(int ROWA, int COLA, double* A, int ROWB, int COLB, double* B, do
 		C = new double[COLA * ROWB];
 		
 		omp_set_num_threads(T);
-		#pragma omp parallel
-		{
-			cout << "Num threads: " << omp_get_num_threads() <<endl;
-		}
 		#pragma omp parallel for 
 		for (int elementIndex = 0; elementIndex < COLA * ROWB; elementIndex++) {
 			int row = elementIndex / COLA;
 			int column = elementIndex % COLA;
-			 
+			
+			C[elementIndex] = 0.0;
 			for (int inner = 0; inner < ROWB; inner++) {	
 				C[elementIndex] += A[INDEX_1D_AS_2D(row, inner, COLA)] * B[INDEX_1D_AS_2D(inner, column, COLB)];					
 			}
 		}
-		/*
-		for (int i = 0; i < ROWA; i++) {
-			for (int j = 0; j < COLB; j++) {
-				for (int inner = 0; inner < ROWB; inner++) {
-					cout << "Multiplication operation" << endl;
-					cout << "i: " << i << endl;
-					cout << "j: " << j << endl;
-					cout << "inner: " << inner << endl;
-					cout << "A: " << A[INDEX_1D_AS_2D(i, inner, COLA)] << endl;
-					cout << "B: " << B[INDEX_1D_AS_2D(inner, i, COLB)] << endl;
-					C[INDEX_1D_AS_2D(i, j, COLB)] += A[INDEX_1D_AS_2D(i, inner, COLA)] * B[INDEX_1D_AS_2D(inner, j, COLB)];
-					cout << "C: " << C[INDEX_1D_AS_2D(i, j, COLB)] << endl;
-					cout << endl;
-				}
-			}
-		}
-		*/
+		
 		return true;
 	} else {
 		return false;
 	}
 }
 
-/*
 void printMatrix(int numRows, int numColumns, double *matrix) {
 	cout << numRows << " " << numColumns << endl;
 	for (int i = 0; i < numRows; i++) {
@@ -72,7 +52,6 @@ void printMatrix(int numRows, int numColumns, double *matrix) {
 		cout << endl;
 	}
 }
-*/
 
 vector<string> parseTokens(string line) {
 	vector<string> tokens;
@@ -173,7 +152,7 @@ int main(int argc, const char *argv[]) {
 	
 	if	(MatrixMult(ROWA, COLA, A, ROWB, COLB, B, C, T)) {
 		if (PrintOutput) {
-//		printMatrix(ROWA, COLB, C);
+			printMatrix(ROWA, COLB, C);
 		}
 	} else {
 		cout << "the colA != rowB MatrixMult return false" << endl;
