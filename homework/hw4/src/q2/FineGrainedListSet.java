@@ -1,12 +1,17 @@
 
 public class FineGrainedListSet<T> implements ListSet<T> {
-  public boolean add(T value) {
-    return false;
-  }
-  public boolean remove(T value) {
-    return false;
-  }
-  public boolean contains(T value) {
-    return false;
-  }
+	@Override
+	public boolean add(T value) {
+		return false;
+	}
+
+	@Override
+	public boolean remove(T value) {
+		return false;
+	}
+
+	@Override
+	public boolean contains(T value) {
+		return false;
+	}
 }
