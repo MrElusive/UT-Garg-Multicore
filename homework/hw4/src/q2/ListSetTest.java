@@ -2,10 +2,12 @@ import java.util.Random;
 
 public class ListSetTest {
 
-	private static final int NUM_ITERATIONS = 5000;
+	private static final int NUM_ITERATIONS = 10000;
 	private static final int NUM_THREADS = 10;
 
+	private static String listSetType;
 	private static ListSet<Integer> listSet = null;
+
 
 	private static void doWork() {
 		Random random = new Random(); // @TODO: Should we just count from 0 to
@@ -16,6 +18,7 @@ public class ListSetTest {
 			int randomValue = random.nextInt();
 
 			if (!listSet.add(randomValue)) {
+
 				System.out.println(String.format("[Thread %d] Failed to add value: %d", threadId, randomValue));
 			}
 			if (!listSet.contains(randomValue)) {
@@ -29,7 +32,6 @@ public class ListSetTest {
 
 	public static void main(String[] args) {
 
-		String listSetType = null;
 		if (args.length > 0) {
 			listSetType = args[0];
 		} else {
@@ -38,6 +40,12 @@ public class ListSetTest {
 			System.exit(1);
 		}
 
+		linkedListTesting();
+
+		multiThreadedTesting();
+	}
+
+	private static void resetListSet() {
 		if (listSetType.equals("coarse")) {
 			listSet = new CoarseGrainedListSet<Integer>();
 
@@ -50,7 +58,14 @@ public class ListSetTest {
 		} else {
 			throw new RuntimeException(String.format("List set type \"%s\" not recognized!", listSetType));
 		}
+	}
 
+	private static void linkedListTesting() {
+
+	}
+
+	private static void multiThreadedTesting() {
+		resetListSet();
 		Runnable work = new Runnable() {
 			@Override
 			public void run() {
@@ -76,5 +91,4 @@ public class ListSetTest {
 			e.printStackTrace();
 		}
 	}
-
 }
