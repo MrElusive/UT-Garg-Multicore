@@ -1,59 +1,137 @@
+import java.util.concurrent.locks.ReentrantLock;
+
 public class FineGrainedListSet<T> implements ListSet<T> {
 
-	Node<T> head;
+	private static class Node<T> {
+		public T value = null;
+		public Node<T> next = null;
+		private ReentrantLock mutex = new ReentrantLock();
+		private int key;
+		public boolean deleted;
+
+		private Node() {
+			value = null;
+		}
+
+		public Node(T value) {
+			this.value = value;
+			this.key = this.value.hashCode();
+		}
+
+		public void lock() {
+			mutex.lock();
+		}
+
+		public void unlock() {
+			mutex.unlock();
+		}
+
+		public static <T> Node<T> createSentinel() {
+			return new Node<T>();
+		}
+
+		public static <T> boolean validateSwingState(Node<T> prevNode, Node<T> currNode) {
+			return prevNode.deleted == false && currNode.deleted == false && prevNode.next == currNode;
+		}
+	}
+
+	private Node<T> head;
+	private Node<T> tail;
 
 	public FineGrainedListSet() {
-		head = null;
+		head = Node.createSentinel();
+		tail = Node.createSentinel();
+		head.next = tail;
 	}
 
 	@Override
 	public boolean add(T value) {
-		Node<T> node = new Node<T>();
-		node.value = value;
-		node.next = null;
+		Node<T> node = new Node<T>(value);
 
-		Node<T> tempNode = head;
-		head = node;
-		node.next = tempNode;
+		while (true) {
+			Node<T> prevNode = head;
+			Node<T> currNode = head.next;
 
-		return true;
+			while (currNode != tail && currNode.key < node.key) {
+				prevNode = currNode;
+				currNode = currNode.next;
+			}
+
+			if (currNode == tail || currNode.key != node.key) {
+				try {
+					prevNode.lock();
+					currNode.lock();
+
+					if (Node.validateSwingState(prevNode, currNode)) {
+						node.next = currNode;
+						prevNode.next = node;
+						return true;
+					} else {
+						continue;
+					}
+
+				} finally {
+					prevNode.unlock();
+					currNode.unlock();
+				}
+
+			} else {
+				return false;
+			}
+		}
 	}
 
 	@Override
 	public boolean remove(T value) {
+		int key = value.hashCode();
 
-		if (head == null) {
-			return false;
-		}
+		while (true) {
+			Node<T> prevNode = head;
+			Node<T> currNode = head.next;
 
-		if (head.value == value) {
-			head = head.next;
-			return true;
-		}
-
-		Node<T> node = head;
-		while (node.next != null) {
-			if (node.next.value == value) {
-				node.next = node.next.next;
-				return true;
+			while (currNode != tail && currNode.key < key) {
+				prevNode = currNode;
+				currNode = currNode.next;
 			}
 
-			node = node.next;
-		}
+			if (currNode != tail && currNode.key == key) {
+				try {
+					prevNode.lock();
+					currNode.lock();
 
-		return false;
+					if (Node.validateSwingState(prevNode, currNode)) {
+						currNode.deleted = true;
+						prevNode.next = currNode.next;
+						return true;
+					} else {
+						continue;
+					}
+
+				} finally {
+					prevNode.unlock();
+					currNode.unlock();
+				}
+
+			} else {
+				return false;
+			}
+		}
 	}
 
 	@Override
 	public boolean contains(T value) {
-		Node<T> node = head;
-		while (node != null) {
-			if (node.value == value) {
-				return true;
-			}
+		int key = value.hashCode();
 
+		Node<T> node = head.next;
+		while (node != tail && node.key < key) {
 			node = node.next;
 		}
-		return false;
+
+		return node != tail && node.key == key && !node.deleted;
+	}
+
+	@Override
+	public boolean isEmpty() {
+			return head.next == tail;
 	}
 }

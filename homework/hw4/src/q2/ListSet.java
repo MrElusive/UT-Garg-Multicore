@@ -15,4 +15,6 @@ public interface ListSet<T> {
 
 	// Returns true if this list contains the specified element.
 	public boolean contains(T value);
+
+	public boolean isEmpty();
 }
