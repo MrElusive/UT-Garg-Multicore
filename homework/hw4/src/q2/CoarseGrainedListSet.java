@@ -83,8 +83,8 @@ public class CoarseGrainedListSet<T> implements ListSet<T> {
 	}
 
 
-	@Override
-	public boolean isEmpty() {
-		return head == null;
-	}
+//	@Override
+//	public boolean isEmpty() {
+//		return head == null;
+//	}
 }

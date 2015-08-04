@@ -130,8 +130,8 @@ public class FineGrainedListSet<T> implements ListSet<T> {
 		return node != tail && node.key == key && !node.deleted;
 	}
 
-	@Override
-	public boolean isEmpty() {
-			return head.next == tail;
-	}
+//	@Override
+//	public boolean isEmpty() {
+//			return head.next == tail;
+//	}
 }

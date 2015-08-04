@@ -131,8 +131,8 @@ public class LockFreeListSet<T> implements ListSet<T> {
 		return node != tail && node.key == key && !node.isDeleted();
 	}
 
-	@Override
-	public boolean isEmpty() {
-		return head.next.getReference() == tail;
-	}
+//	@Override
+//	public boolean isEmpty() {
+//		return head.next.getReference() == tail;
+//	}
 }
